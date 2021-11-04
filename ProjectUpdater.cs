@@ -59,6 +59,21 @@ namespace ReleaseUpdater
             return fileDownloadUrl;
         }
 
+        public string DownloadAndReplace(string releaseFolder, string oldFolder, string zipFileName, string extractedFolderName, string latestUrlFile)
+        {
+            string downloadMsg = Download(zipFileName, extractedFolderName, latestUrlFile);
+            string outputText = "Download: {0}\nMovedOld: {1}\nUpdated: {2}";
+            bool movedOld = false;
+            bool updated = false;
+            if (downloadMsg == "latest")
+            {
+                return string.Format(outputText, downloadMsg, movedOld, updated);
+            }
+            movedOld = MoveFolder(releaseFolder, oldFolder);
+            updated = MoveFolder(extractedFolderName, releaseFolder);
+            return string.Format(outputText, downloadMsg, movedOld, updated);
+        }
+
         /**
          * Returns true, if download is 
          * Returns false, if download failed or file is already up2date
@@ -66,29 +81,35 @@ namespace ReleaseUpdater
          */
         public string Download(string zipFileName, string extractedFolderName, string latestUrlFile)
         {
-            try
+            string fileDownloadUrl = GetNewestReleaseForProject(latestUrlFile);
+            if (fileDownloadUrl == "latest")
             {
-                string fileDownloadUrl = GetNewestReleaseForProject(latestUrlFile);
-                if (fileDownloadUrl == "latest")
-                {
-                    return "latest";
-                }
-                WebClient webClient = new WebClient();
-                webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(Completed);
-                webClient.DownloadProgressChanged += new DownloadProgressChangedEventHandler(Loading);
-                webClient.DownloadFileAsync(new Uri(fileDownloadUrl), zipFileName);
-                WaitForDownloadCompletion();
-                ReplaceFiles(zipFileName, extractedFolderName);
-                return "updated";
+                return "latest";
             }
-            catch (Exception e)
+            WebClient webClient = new WebClient();
+            webClient.DownloadFileCompleted += new AsyncCompletedEventHandler(Completed);
+            webClient.DownloadProgressChanged += new DownloadProgressChangedEventHandler(Loading);
+            webClient.DownloadFileAsync(new Uri(fileDownloadUrl), zipFileName);
+            WaitForDownloadCompletion();
+            ReplaceFiles(zipFileName, extractedFolderName);
+            if (File.Exists(zipFileName))
+                File.Delete(zipFileName);
+            return "updated";
+        }
+
+        private bool MoveFolder(string sourceFolderPath, string destinationFolderPath)
+        {
+            if (Directory.Exists(destinationFolderPath))
+                Directory.Delete(destinationFolderPath, true);
+            if (Directory.Exists(sourceFolderPath))
             {
-                return e.ToString();
+                Directory.Move(sourceFolderPath, destinationFolderPath);
+                return true;
             }
+            return false;
         }
         private void ReplaceFiles(string zipFileName, string extractedFolderName)
         {
-            Console.WriteLine("extractedfolder: ", extractedFolderName);
             if (Directory.Exists(extractedFolderName))
                 Directory.Delete(extractedFolderName, true);
             ZipFile.ExtractToDirectory(zipFileName, extractedFolderName);
@@ -124,6 +145,10 @@ namespace ReleaseUpdater
                     Thread.Sleep(300);
                 }
             }
+            if (ShallLog && _currentMessage != "")
+            {
+                Console.WriteLine(_currentMessage);
+            }
         }
         public string GetUri(string uri)
         {
@@ -151,7 +176,7 @@ namespace ReleaseUpdater
                 }
                 else
                 {
-                    _currentMessage = "Download completed!";
+                    _currentMessage = "Download completed!\n";
                 }
                 DownloadCompleted = true;
             }
@@ -161,7 +186,14 @@ namespace ReleaseUpdater
             lock (_locker)
             {
                 if (_firstRun)
+                {
                     _firstRun = false;
+                    if (ShallLog)
+                    {
+                        //Yeah i know, it is ugly, but i just lost the code i've written before and i am too lazy to recreate it rn...
+                        Console.WriteLine();
+                    }
+                }
                 else
                 {
                     _shallMoveUp = true;

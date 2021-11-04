@@ -7,20 +7,11 @@ namespace ReleaseUpdater
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Starting Updater...");
             ProjectUpdater projectUpdater = new ProjectUpdater("Scraxtastic", "JogisWayToStreamingGod");
-            string updateStatus = projectUpdater.Download(@"./update.zip", @"./update", @"./lastDownloadUrl.txt");
-            if (updateStatus == "latest")
-            {
-                Console.WriteLine("Didn't update...");
-            }
-            else if (updateStatus.Contains("exception"))
-            {
-                Console.WriteLine("This should not have happened.");
-            }
-            else
-            {
-                Console.WriteLine("Updated to: ", updateStatus);
-            }
+            string updateStatus = projectUpdater.DownloadAndReplace(@"./Jogigame", @"./Jogigame_old",@"./JogiGameUpdate.zip", @"./JogiGame_update", @"./JogiLastDownloadedVersion.txt");
+            Console.WriteLine(updateStatus);
+            Console.WriteLine("Finished Updater.");
         }
 
     }
